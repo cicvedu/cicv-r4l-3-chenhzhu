@@ -163,4 +163,14 @@ config SAMPLE_RUST_SELFTESTS
 
 	  If unsure, say N.
 
+config SAMPLE_RUST_HELLOWORLD
+	tristate "Hello World"
+	help
+	  This option builds the self test cases for Rust.
+
+	  To compile this as a module, choose M here:
+	  the module will be called rust_echo_server.
+
+	  If unsure, say N.
+
 endif # SAMPLES_RUST

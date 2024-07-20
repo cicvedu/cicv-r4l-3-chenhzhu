@@ -18,49 +18,31 @@ cd src_e1000
 bash build_image.sh
 ```
 
-## Step 2: Modify Network Configuration
+## Step 2: Turn Off the e1000 Network Driver
+Back to `linux/` and re-run make LLVM=1 menuconfig, then:
+```
+Device Drivers --->
+    [*] Network device support --->
+        [*] Ethernet driver support --->
+            <> Intel devices, Intel(R) PRO/1000 Gigabit Ethernet support
+```
+![alt text](./images/assign2_turn_off.png)
 
-After entering the QEMU virtual machine, conduct following commands:
+## Step 3: Modify Network Configuration
+
+After recompile the kernal code and entering the QEMU virtual machine, conduct following commands:
 
 ```bash
 insmod r4l_e1000_demo.ko
 ip link set eth0 up
-ip addr add broadcast 10.0.2.255 dev eth0
+ifconfig eth0 broadcast 10.0.2.255
 ip addr add 10.0.2.15/255.255.255.0 dev eth0 
 ip route add default via 10.0.2.1
 ping 10.0.2.2
 ```
 
-The output of some commands shows below:
-```
-~ # insmod r4l_e1000_demo.ko
-[  210.873311] r4l_e1000_demo: loading out-of-tree module taints kernel.
-[  210.882634] r4l_e1000_demo: Rust for linux e1000 driver demo (init)
-[  210.885130] insmod (79) used greatest stack depth: 13024 bytes left
-~ # ip link set eth0 up
-ip: RTNETLINK answers: Invalid argument
-~ # ip addr add 10.0.2.15/255.255.255.0 dev eth0
-ip: RTNETLINK answers: File exists
-~ # ip route add default via 10.0.2.1
-ip: RTNETLINK answers: File exists
-~ # ping 10.0.2.2
-PING 10.0.2.2 (10.0.2.2): 56 data bytes
-64 bytes from 10.0.2.2: seq=0 ttl=255 time=11.807 ms
-64 bytes from 10.0.2.2: seq=1 ttl=255 time=0.756 ms
-64 bytes from 10.0.2.2: seq=2 ttl=255 time=0.434 ms
-64 bytes from 10.0.2.2: seq=3 ttl=255 time=0.403 ms
-64 bytes from 10.0.2.2: seq=4 ttl=255 time=0.421 ms
-64 bytes from 10.0.2.2: seq=5 ttl=255 time=0.410 ms
-64 bytes from 10.0.2.2: seq=6 ttl=255 time=0.561 ms
-64 bytes from 10.0.2.2: seq=7 ttl=255 time=0.399 ms
-64 bytes from 10.0.2.2: seq=8 ttl=255 time=1.516 ms
-64 bytes from 10.0.2.2: seq=9 ttl=255 time=0.432 ms
-^C
---- 10.0.2.2 ping statistics ---
-10 packets transmitted, 10 packets received, 0% packet loss
-round-trip min/avg/max = 0.399/1.713/11.807 ms
-```
+The output of commands shows below:
+![alt text](./images/assign2_code_output.png)
 
 ## Step 4: Exit QEMU
-
 Press `Ctrl-A X` to exit the QEMU.
