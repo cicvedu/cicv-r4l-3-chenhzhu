@@ -2,7 +2,6 @@
 export R4L_EXP=$PWD
 
 # Step 2: 创建initramfs镜像
-
 mkdir $R4L_EXP/initramfs
 cd $R4L_EXP/initramfs
 
@@ -18,7 +17,7 @@ sudo cp -a /dev/{null,console,tty,ttyS0} dev/
 # Step 2.1: 将之前静态编译的busybox拷贝到initramf/bin下
 cd $R4L_EXP/initramfs
 
-cp /path/to/your/busybox-1.36.1/busybox  ./bin/
+cp $R4L_EXP/../busybox-1.36.1/busybox  ./bin/
 chmod +x bin/busybox
 # Install busybox
 bin/busybox --install bin
@@ -85,14 +84,14 @@ find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
 cd $R4L_EXP
 
 # 以下是boot.sh的内容：
-#!/bin/sh
-kernel_image="../linux/arch/x86/boot/bzImage"
+# #!/bin/sh
+# kernel_image="../linux/arch/x86/boot/bzImage"
 
-qemu-system-x86_64 \
--kernel $kernel_image \
--append "console=ttyS0" \
--initrd ./initramfs.cpio.gz \
--nographic
+# qemu-system-x86_64 \
+# -kernel $kernel_image \
+# -append "console=ttyS0" \
+# -initrd ./initramfs.cpio.gz \
+# -nographic
 
 # 然后执行以下命令启动
 chmod +x boot.sh

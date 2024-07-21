@@ -214,6 +214,8 @@ We use WSL2 with Ubuntu 22.04 to conduct all the assignment
 
 Q：作业5中的字符设备/dev/cicv是怎么创建的？它的设备号是多少？它是如何与我们写的字符设备驱动关联上的？
 
+A: Inside `build_image.sh`, the line `echo "mknod /dev/cicv c 248 0" >> etc/init.d/rcS` create `/dev/cicv`; Device Number is `248` which is linked by the system.
+
 ## Step 1: Create Read Write Functions
 Goto the file `samples/rust/rust_chrdev.rs` and implement read write funcs:
 ```rust
@@ -246,3 +248,207 @@ Kernel hacking
 
 ## Step 3: Run the Test
 ![alt text](./images/assign5_chrdev_hello.png)
+
+# Mini Project
+We use WSL2 with Ubuntu 22.04 to conduct all the assignment
+
+## Step 1: Build the Script and Run
+run this [file](../r4l_experiment/build_script.sh)
+
+## Step 2: Set NSF server
+```bash
+sudo apt-get install nfs-kernel-server
+sudo bash -c "echo \
+'$R4L_EXP/driver     127.0.0.1(insecure,rw,sync,no_root_squash)' \
+    >> /etc/exports"
+sudo /etc/init.d/rpcbind restart
+sudo /etc/init.d/nfs-kernel-server restart
+```
+
+```
+# Add this line in init script. Put it just after the line of sleep 0.5.
+mount -t nfs -o nolock host_machine:/path/to/working/directory /mnt
+
+# 然后rebuild initramfs
+cd $R4L_EXP/initramfs
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
+```
+![alt text](./images/assign6_set_nsf.png)
+
+## Step 4: Set up telnet server
+First set `pts device node`
+```bash
+cd $R4L_EXP/initramfs
+
+mkdir dev/pts
+mknod -m 666 dev/ptmx c 5 2
+
+# 同样在init脚本中设置自动挂载，在NFS设置后面加入
+mount -t devpts devpts  /dev/pts
+
+# 然后rebuild initramfs
+cd $R4L_EXP/initramfs
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
+```
+
+Add following args of QEMU in `boot.sh`:
+```bash
+-netdev user,id=host_net,hostfwd=tcp::7023-:23 \
+-device e1000,mac=52:54:00:12:34:50,netdev=host_net \
+```
+
+## Step 4.1: Enable telnet server
+```bash
+# 同样在init脚本中设置自动启动，在telnetserver设置后面加入
+telnetd -l /bin/sh
+# 然后rebuild initramfs
+cd $R4L_EXP/initramfs
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
+```
+
+# Step 5: Create Rust Module
+In host, run:
+```bash
+cd $R4L_EXP/driver/002_completion
+make KERNELDIR=../../../linux
+```
+
+Copy and modify `002_completion` into `r4l_experiment/driver/003_completion_rust`:
+
+- `Makefile`:
+
+```makefile
+ifneq ($(KERNELRELEASE),)
+
+# In kbuild context
+module-objs := rust_completion.o	
+obj-m := rust_completion.o
+
+CFLAGS_hello_world.o := -DDEBUG
+else
+KDIR := ../../../linux
+PWD := $(shell pwd)
+
+all:
+	$(MAKE) LLVM=1 -C $(KDIR)  M=$(PWD) modules
+
+.PHONY: clean
+clean:
+	rm -f *.ko *.o .*.cmd .*.o.d *.mod *.mod.o *.mod.c *.symvers *.markers *.unsigned *.order *~
+endif
+```
+
+- `rust_completion.rs`:
+```rust
+// SPDX-License-Identifier: GPL-2.0
+
+//! Rust character device sample.
+
+use core::result::Result::Err;
+
+use kernel::prelude::*;
+use kernel::sync::Mutex;
+use kernel::{chrdev, file};
+use kernel::task::Task;
+
+const GLOBALMEM_SIZE: usize = 0x1000;
+
+module! {
+    type: RustChrdev,
+    name: "rust_completion",
+    author: "R4L experiments",
+    description: "Rust completion of experiemnt",
+    license: "GPL",
+}
+
+static GLOBALMEM_BUF: Mutex<[u8;GLOBALMEM_SIZE]> = unsafe {
+    Mutex::new([0u8;GLOBALMEM_SIZE])
+};
+
+struct RustFile {
+    #[allow(dead_code)]
+    inner: &'static Mutex<[u8;GLOBALMEM_SIZE]>,
+}
+
+#[vtable]
+impl file::Operations for RustFile {
+    type Data = Box<Self>;
+
+    fn open(_shared: &(), _file: &file::File) -> Result<Box<Self>> {
+        Ok(
+            Box::try_new(RustFile {
+                inner: &GLOBALMEM_BUF
+            })?
+        )
+    }
+
+    fn write(_this: &Self,_file: &file::File,_reader: &mut impl kernel::io_buffer::IoBufferReader,_offset:u64,) -> Result<usize> {
+        pr_info!("fn write() is invoked\n");
+        let task = Task::current();
+        pr_info!("process {} awakening the readers...\n", task.pid());
+        
+        let mut buf = _this.inner.lock();
+        let offset = _offset.try_into()?;
+        let len = core::cmp::min(_reader.len(), buf.len().saturating_sub(offset));
+        _reader.read_slice(&mut buf[offset..][..len])?;
+        Ok(len)
+    }
+
+    fn read(_this: &Self,_file: &file::File,_writer: &mut impl kernel::io_buffer::IoBufferWriter,_offset:u64,) -> Result<usize> {
+        pr_info!("fn read() is invoked\n");
+        let task = Task::current();
+        pr_info!("process {} is going to sleep\n", task.pid());
+
+        let mut buf = _this.inner.lock();
+        let offset = _offset.try_into()?;
+        let len = core::cmp::min(_writer.len(), buf.len().saturating_sub(offset));
+        _writer.write_slice(&mut buf[offset..][..len])?;
+        Ok(len)
+    }
+}
+
+struct RustChrdev {
+    _dev: Pin<Box<chrdev::Registration<2>>>,
+}
+
+impl kernel::Module for RustChrdev {
+    fn init(name: &'static CStr, module: &'static ThisModule) -> Result<Self> {
+        pr_info!("Rust completion module (init)\n");
+
+        let mut chrdev_reg = chrdev::Registration::new_pinned(name, 0, module)?;
+
+        // Register the same kind of device twice, we're just demonstrating
+        // that you can use multiple minors. There are two minors in this case
+        // because its type is `chrdev::Registration<2>`
+        chrdev_reg.as_mut().register::<RustFile>()?;
+        chrdev_reg.as_mut().register::<RustFile>()?;
+
+        Ok(RustChrdev { _dev: chrdev_reg })
+    }
+}
+
+impl Drop for RustChrdev {
+    fn drop(&mut self) {
+        pr_info!("Rust completion module (exit)\n");
+    }
+}
+
+```
+
+## Outcome shows below
+- Build the module:
+```bash
+make
+```
+
+- Load it in QEMU Linux:
+```bash
+cd /mnt/003_rust_completion
+sh load_module.sh
+```
+
+- Test it:
+```bash
+echo "Hello" > /dev/completion
+cat /dev/completion
+```
