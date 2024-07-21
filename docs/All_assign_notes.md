@@ -200,3 +200,49 @@ dmesg | tail
 ```
 
 ![alt text](./images/assign3_output_helloworld.png)
+
+
+# Assign 4: Character Device
+We use WSL2 with Ubuntu 22.04 to conduct all the assignment
+
+## Step 1: Write the Module
+Write codes below into the `rl4_e1000_demo.rs` file:
+
+
+# Assign 5: Add Remove Module for e1000
+We use WSL2 with Ubuntu 22.04 to conduct all the assignment
+
+Q：作业5中的字符设备/dev/cicv是怎么创建的？它的设备号是多少？它是如何与我们写的字符设备驱动关联上的？
+
+## Step 1: Create Read Write Functions
+Goto the file `samples/rust/rust_chrdev.rs` and implement read write funcs:
+```rust
+    fn write(_this: &Self,_file: &file::File,_reader: &mut impl kernel::io_buffer::IoBufferReader,_offset:u64,) -> Result<usize> {
+        let mut buf = _this.inner.lock();
+        let offset = _offset.try_into()?;
+        let len = core::cmp::min(_reader.len(), buf.len().saturating_sub(offset));
+        _reader.read_slice(&mut buf[offset..][..len])?;
+        Ok(len)
+    }
+
+    fn read(_this: &Self,_file: &file::File,_writer: &mut impl kernel::io_buffer::IoBufferWriter,_offset:u64,) -> Result<usize> {
+        let mut buf = _this.inner.lock();
+        let offset = _offset.try_into()?;
+        let len = core::cmp::min(_writer.len(), buf.len().saturating_sub(offset));
+        _writer.write_slice(&mut buf[offset..][..len])?;
+        Ok(len)
+    }
+```
+
+## Step 2: Change configuration of Kenel
+Make following change and recompile the kernel
+```
+Kernel hacking
+  ---> Sample Kernel code
+      ---> Rust samples
+              ---> <*>Character device (NEW)
+
+```
+
+## Step 3: Run the Test
+![alt text](./images/assign5_chrdev_hello.png)
