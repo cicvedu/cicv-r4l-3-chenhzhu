@@ -296,6 +296,10 @@ Add following args of QEMU in `boot.sh`:
 -netdev user,id=host_net,hostfwd=tcp::7023-:23 \
 -device e1000,mac=52:54:00:12:34:50,netdev=host_net \
 ```
+Run the command below in the host to connectthe QEMU Linux:
+```bash
+telnet localhost 7023
+```
 
 ## Step 4.1: Enable telnet server
 ```bash
@@ -306,14 +310,22 @@ cd $R4L_EXP/initramfs
 find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
 ```
 
-# Step 5: Create Rust Module
-In host, run:
+## Step 5: Create Rust Module
+In host, run the following to check the telnet works:
 ```bash
 cd $R4L_EXP/driver/002_completion
 make KERNELDIR=../../../linux
 ```
 
-Copy and modify `002_completion` into `r4l_experiment/driver/003_completion_rust`:
+![alt text](./images/assign6_test002_connection.png)
+
+Now, copy and modify `002_completion` into `r4l_experiment/driver/003_completion_rust`:
+
+- `Kbuild`:
+
+```bash
+obj-m := rust_completion.o
+```
 
 - `Makefile`:
 

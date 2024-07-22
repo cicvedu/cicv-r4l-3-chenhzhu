@@ -15,7 +15,7 @@ ip link set lo up
 sleep 0.5
 
 # Mounr nfs
-mount -t nfs -o nolock host_machine:/path/to/working/directory /mnt
+mount -t nfs -o nolock host_machine:/home/zhuzhuhao/cicv-r4l-3-chenhzhu/r4l_experiment/driver /mnt
 
 # Mount pts decive node
 mount -t devpts devpts /dev/pts

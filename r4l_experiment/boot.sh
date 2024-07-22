@@ -7,4 +7,7 @@ qemu-system-x86_64 \
 -initrd ./initramfs.cpio.gz \
 -netdev user,id=host_net,hostfwd=tcp::7023-:23 \
 -device e1000,mac=52:54:00:12:34:50,netdev=host_net \
--nographic 
+-nographic
+
+# -netdev user,id=host_net,hostfwd=tcp::7023-:23 \
+# -device e1000,mac=52:54:00:12:34:50,netdev=host_net \
