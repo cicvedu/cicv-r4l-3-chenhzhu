@@ -1,6 +1,6 @@
 #!/bin/sh
-module="completion"
-device="completion"
+module="rust_completion"
+device="rust_completion"
 mode="666"
 group=0
 

@@ -464,3 +464,4 @@ sh load_module.sh
 echo "Hello" > /dev/completion
 cat /dev/completion
 ```
+![alt text](./images/assign6_test003_output.png)
